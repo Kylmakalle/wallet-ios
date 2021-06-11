@@ -9,7 +9,7 @@ import AnimatedStickerNode
 import SolidRoundedButtonNode
 import WalletCore
 
-private func shareInvoiceQrCode(context: WalletContext, invoice: String) {
+private func shareInvoiceQrCode(targetViewController: UIViewController, invoice: String) {
     let _ = (qrCode(string: invoice, color: .black, backgroundColor: .white, icon: .custom(UIImage(bundleImageName: "Wallet/QrGem")))
     |> map { _, generator -> UIImage? in
         let imageSize = CGSize(width: 768.0, height: 768.0)
@@ -22,7 +22,11 @@ private func shareInvoiceQrCode(context: WalletContext, invoice: String) {
         }
         
         let activityController = UIActivityViewController(activityItems: [image], applicationActivities: nil)
-        context.presentNativeController(activityController)
+		if UIDevice.current.userInterfaceIdiom == .pad,
+		   let popover = activityController.popoverPresentationController {
+			popover.sourceView = targetViewController.view
+		}
+		targetViewController.present(activityController, animated: true)
     })
 }
 
@@ -257,8 +261,10 @@ private final class WalletReceiveScreenNode: ViewControllerTracingNode {
                 self.buttonNode.title = self.presentationData.strings.Wallet_Receive_ShareInvoiceUrl
         }
         
-        self.buttonNode.pressed = {
-            context.shareUrl(url)
+        self.buttonNode.pressed = { [weak self] in
+			if let viewController = self?.closestViewController {
+				context.shareUrl(targetViewController: viewController, url)
+			}
         }
         self.secondaryButtonNode.addTarget(self, action: #selector(createInvoicePressed), forControlEvents: .touchUpInside)
     }
@@ -290,7 +296,9 @@ private final class WalletReceiveScreenNode: ViewControllerTracingNode {
     }
     
     @objc private func qrPressed() {
-        shareInvoiceQrCode(context: self.context, invoice: urlForMode(self.mode))
+		if let VC = closestViewController {
+			shareInvoiceQrCode(targetViewController: VC, invoice: urlForMode(self.mode))
+		}
     }
     
     @objc private func createInvoicePressed() {
